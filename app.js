@@ -13,12 +13,16 @@
   const SRY = CY - 100;
   const cos = Math.cos;
   const sin = Math.sin;
+  const SPRITE = 6;
+
+  // invert color
+  const INVERT = false;
 
   const UM = () => new Snap.Matrix(1,0,0,1,0,0);
 
-  const COLOR_DEAD = '#aaa';
+  const COLOR_DEAD = '#999';
 
-  // const io = window.io('ws://139.129.24.151:3000');
+  window.io = window.io('ws://139.129.24.151:3000');
 
   let Paper, Element;
   const paper = s.paper;
@@ -28,9 +32,18 @@
     Paper = _Paper;
   });
 
+  Element.prototype.size = function() {
+    let m = this.transform().localMatrix;
+    let box = this.getBBox();
+    return {
+      x: m.x(box.x, box.y),
+      y: m.y(box.x, box.y)
+    }
+  }
+
   window.s = s;
 
-  class People {
+  window.People = class People {
     constructor(id, name = 'NEED FATHER') {
       this.pow = 0;
       this.uid = id;
@@ -39,7 +52,8 @@
       .circle(0, 0, 50)
       .attr({
         'fill-opacity': 0,
-        'stroke-width': 3
+        'stroke-width': 3,
+        'stroke': '#fff'
       });
       let gPower = paper
       .text(0 ,0, this.pow.toString())
@@ -51,9 +65,13 @@
       let gName = paper
       .text(0, 80, name)
       .attr({
-        'font-size': 20,
-        'text-anchor': 'middle'
+        'font-size': 30,
+        'text-anchor': 'middle',
+        'font-weight': 'bold'
       });
+      // let gShield = paper .circle(0, 0, 50) .attr({
+      //   kkkk
+      // })
       let group = paper.g(gCircle, gPower, gName);
       group.attr({
         stroke: '#000'
@@ -71,7 +89,7 @@
 
       self.reset();
       self.click(() => {
-        self.clear();
+        self.attackAll();
       });
       return self;
     }
@@ -80,11 +98,126 @@
       let people = new People(id, name);
       people.reset()
       people.attach();
-      console.log(People.peoples)
       panel.addUser();
+      refreshPeople();
+    }
+
+    static do(commands, cb) {
+      let deaders = [];
+      commands.forEach(command => {
+        let people = _.find(People.peoples, (people) => people.uid === command.id);
+        people.power(command.power);
+        command.isDead && deaders.push(people);
+        people.level = command.level;
+        people.action = command.status;
+      });
+
+      let peoples = People.peoples.filter(people => people.state !== 'dead');
+      panel.alive = peoples.length;
+      panel.refresh();
+      let actions = [];
+      let attackers = peoples.filter(attacker => attacker.action === 'attack');
+      let others = peoples.filter(other => other.action !== 'attack');
+      let alls = attackers.concat(others);
+
+      console.log(attackers, others, alls);
+
+      for (let i = 0; i < attackers.length; i++) {
+        let people = alls[i];
+        for (let j = i+1; j < alls.length; j++) {
+          let other = alls[j];
+          let sa = people.action;
+          let sb = other.action;
+          console.log(i,j,sa,sb);
+          if (sa === 'attack' && sb === 'attack') {
+            if (people.level === other.level) actions.push(People.fair(people, other))
+            else if (people.level < other.level) actions.push(People.crash(other, people))
+            else actions.push(People.crash(people, other));
+          } else if (sa === 'attack' && sb === 'power') {
+            actions.push(People.harm(people, other));
+          } else if (sa === 'power' && sb === 'attack') {
+            actions.push(People.harm(other, people));
+          } else if (sa === 'attack' && sb === 'defend' || sa === 'defend' && sb === 'attack') {
+            if (people.level === other.level) {
+              if (sa === 'attack') {
+                actions.push(People.attack(people, other));
+              } else {
+                actions.push(People.attack(other, people));
+              }
+            } else if (people.level > other.level) {
+              if (sa === 'attack') {
+                actions.push(People.boom(people, other))
+              } else {
+                actions.push(People.boom(other, people))
+              }
+            } else {
+              if (sa === 'attack') {
+                actions.push(People.attack(people, other))
+              } else {
+                actions.push(People.attack(other, people))
+              }
+            }
+          }
+        }
+      }
+
+      deaders.forEach(deader => deader.setState('dead'));
+
+      cb();
+    }
+
+    // 攻击相互抵消
+    static fair(pa, pb) {
+      let posa = pa.size();
+      let posb = pb.size();
+
+      let xmid = (posa.x + posb.x) / 2;
+      let ymid = (posa.y + posb.y) / 2;
+
+      return Promise.all([
+        shot(posa.x, posa.y, xmid, ymid, pa.level-1 || 0),
+        shot(posb.x, posb.y, xmid, ymid, pb.level-1 || 0)
+      ]);
+    }
+
+    // 攻击穿透
+    static crash(pa, pb) {
+      let posa = pa.size();
+      let posb = pb.size();
+
+      let xmid = (posa.x + posb.x) / 2;
+      let ymid = (posa.y + posb.y) / 2;
+
+      return Promise.all([
+        shot(posa.x, posa.y, xmid, ymid, pa.level-1 || 0),
+        shot(posb.x, posb.y, xmid, ymid, pb.level-1 || 0)
+      ]).then(() => shot(xmid, ymid, posb.x, posb.y, pa.level-1 || 0));
+    }
+
+    // 直接攻击伤害
+    static harm(pa, pb) {
+      return People.attack(pa,pb).then(() => {
+        pb.damage();
+      })
+    }
+
+    static attack(pa, pb) {
+      let posa = pa.size();
+      let posb = pb.size();
+
+      return Promise.all([
+        shot(posa.x, posa.y, posb.x, posb.y, pa.level-1 || 0)
+      ]);
+    }
+
+    static boom(pa, pb) {
+      return People.attack(pa,pb).then(() => {
+        console.log(2);
+      })
     }
 
     attach() {
+      if (this.state === 'dead') return;
       this.el.appendTo(s);
       People.peoples.push(this);
       return this;
@@ -125,16 +258,14 @@
     }
 
     attack(people) {
-      var line = s.paper.line(this.attr('x'), this.attr('y'), people.attr('x'), people.attr('y'));
-      line.attr({
-        stroke: '#000',
-        'stroke-width': '1px'
-      });
-
-      setTimeout(() => line.remove(), 1000);
+      if (this.state === 'dead') return;
+      let s1 = this.size();
+      let s2 = people.size();
+      var line = shot(s1.x, s1.y, s2.x, s2.y,1,() => {});
     }
 
     attackAll() {
+      if (this.state === 'dead') return;
       People.peoples.forEach(people => {
         if (people === this) return;
         this.attack(people);
@@ -142,6 +273,7 @@
     }
 
     defend() {
+      if (this.state === 'dead') return;
       new Shield(Shield.fragments.shield).defendFor(people);
     }
 
@@ -149,12 +281,34 @@
       if (number === void 0) {
         return this.pow;
       }
+      if (number === this.pow) return number;
+      if (this.state === 'dead') return;
+
+      let changeColor;
+
+      if (number > this.pow) {
+        changeColor = 'green';
+      } else {
+        changeColor = 'brown';
+      }
+
+      this.gCircle.animate({
+        fill: changeColor,
+        'fill-opacity': 1
+      }, 300, mina.easein, () => {
+        this.gCircle.animate({
+          fill: '#000',
+          'fill-opacity': 0
+        }, 1000);
+      });
+
       this.pow = number;
       this.gPower.node.innerHTML = this.pow;
       return this;
     }
 
     setState(state) {
+      if (this.state === 'dead') return;
       if (state === this.state) return;
       switch(state) {
       case 'normal':
@@ -163,21 +317,18 @@
       case 'action':
         this._actionState();
         break;
-      case 'damage':
-        this._damageState();
-        break;
       case 'dead':
         this._deadState();
         break;
       default:
       }
+      this.state = state;
     }
 
     _deadState() {
-      this.el.animate({
-        fill: COLOR_DEAD,
-        stroke: COLOR_DEAD
-      }, 300);
+      this.attr({
+        class: 'dead'
+      });
     }
 
     _actionState() {
@@ -187,15 +338,15 @@
       },1000);
     }
 
-    _damageState() {
+    damage() {
       this.gCircle.animate({
         'stroke-width': 10,
         'stroke': '#990000'
       }, 200, () => {
         this.gCircle.animate({
           'stroke-width': 3,
-          'stroke': '#000'
-        }, 1500)
+          'stroke': '#fff'
+        }, 1000);
       });
 
       this.gPower.animate({
@@ -204,8 +355,10 @@
         this.gPower.animate({
           transform: UM()
         }, 200);
-      })
+      });
     }
+
+    _normalState() {}
   }
 
   People.peoples = [];
@@ -292,11 +445,12 @@
 
     setTime(time) {
       this.el.node.innerHTML = time;
+      if (state.state === 'cooldown' || state.state === 'waiting') this.show();
       if (time < 10) {
         this.animate({
           transform: UM().scale(2, 2, CX, CY),
           fill: '#330000',
-        }, 500, () => {
+        }, 300, () => {
           if (time > 0) {
             this.animate({
               transform: UM(),
@@ -306,7 +460,7 @@
             this.animate({
               transform: UM().scale(0, 0, CX, CY),
               fill: ''
-            }, 200, () => {
+            }, 10, () => {
               this.hide();
               this.reset();
             })
@@ -366,6 +520,7 @@
     }
 
     setState(s) {
+      let args = Array.prototype.slice.call(arguments, 1);
       if (s !== this.state) this.leaveState(this.state);
       this.state = s;
       switch(s) {
@@ -374,38 +529,22 @@
         break;
         // waiting start
         case 'waiting':
+        io.send({type: 'game control', status: 'begin'});
         timer.show();
         panel.show();
         this.show('等待用户加入');
-        let time = 10;
-        setTimeout(function st() {
-          timer.setTime(time);
-          if (time > 0) {
-            time--;
-            setTimeout(st, 1000);
-          } else {
-            state.setState('action');
-          }
-        }, 1000);
         break;
         case 'cooldown':
         this.text('请说出指令');
-        round.nextRound(() => {
-          timer.show();
-          let time = 10;
-          setTimeout(function st() {
-            timer.setTime(time);
-            if (time > 0) {
-              time--;
-              setTimeout(st, 1000);
-            } else {
-              state.setState('end');
-            }
-          }, 1000);
-        });
+        round.nextRound();
+        timer.show();
         break;
         case 'action':
         this.text('决战中...');
+        People.do.apply(People, args.concat([() => {this.setState('waitcooldown'); }]));
+        case 'waitcooldown':
+        this.text('等待下一次开始');
+        break;
         break;
         case 'end':
         panel.hide();
@@ -455,8 +594,8 @@
       refreshPeople();
     });
 
-    // state.setState('welcome');
-    state.setState('none');
+    state.setState('welcome');
+    // state.setState('none');
   }
 
   function showWelcome() {
@@ -553,7 +692,7 @@
   }
 
   function createRemark() {
-    const text = paper.text(CX, 600, 'Power By XGHeaven,XANA,hakureisino,JK');
+    const text = paper.text(CX, 600, 'Power By XGHeaven,XANA,sino,JK');
     text.attr({
       'font-size': 40,
       'text-anchor': 'middle'
@@ -571,27 +710,57 @@
   .spread(init)
   .catch(initError)
 
-  var border = s.rect(0,0,800,800);
-  border.attr({
-    fill: '#ffffff',
-    opacity: 0,
-    stroke: '#000000',
-    'stroke-width': '1px'
-  });
-
   setTimeout(() => {
     // new People(2).reset().attach().setState('dead');
   }, 2000);
 
-  // io.on('message', (data) => {
+  window.shot = function shot(x1,y1,x2,y2,color=0,cb) {
+    x1 = (x1 - CX) / -SPRITE; 
+    y1 = (y1 - CY) / -SPRITE;
+    x2 = (x2 - CX) / -SPRITE;
+    y2 = (y2 - CY) / -SPRITE;
+    if (typeof cb === 'function') {
+      sprite({x:x1,y:y1}, {x:x2, y:y2}, color, 50, 1000, cb);
+    } else {
+      return new Promise((resolve, reject) => {
+        sprite({x:x1,y:y1}, {x:x2, y:y2}, color, 50, 1000, resolve);
+      });
+    }
+  }
 
-  // });
+  io.on('message', data => {
+    // return;
+    console.log('message', data);
+    if (data.status === 'end') {
+      if (state.state === 'action') {
+        state.setState('end');
+      }
+    }
+  });
 
-  // io.on('members', data => {
+  io.on('members', members => {
+    // return;
+    console.log('members', members);
+    _.differenceWith(members, People.peoples, (a,b) => a.id === b.uid).forEach(people => {
+      People.add(people.id, people.name);
+    });
 
-  // });
+    state.setState('action', members);
+  });
 
-  // io.on('time', data => {
+  io.on('time', time => {
+    // return;
+    console.log('time', time);
+    timer.setTime(time.countDown);
+    if (parseFloat(time.countDown) && state.state === 'waitcooldown') {
+      state.setState('cooldown');
+    }
+  });
 
-  // });
+  if (INVERT) {
+    s.attr({
+      filter: s.filter(Snap.filter.invert())
+    });
+    document.body.style.backgroundColor = '#000';
+  }
 })()

@@ -6,6 +6,37 @@
   margin: auto;
   display: block;
 }
+
+body {
+  padding: 0;
+  margin: 0;
+  background: #000;
+}
+
+text {
+  fill: white;
+}
+
+.dead text {
+  fill: #999;
+  text-decoration: line-through;
+}
+
+.dead circle {
+  stroke: #999;
+}
+
+#background {
+  width: 800px;
+  height: 600px;
+  margin: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+}
+
 .people-action {
   stroke-dasharray: 200;
   animation: 2s linear 0s infinite key-action
@@ -29,13 +60,13 @@
 }
 
 .button rect {
-  stroke: black;
+  stroke: white;
   stroke-width: 3px;
-  fill: white;
+  fill: black;
 }
 
 .button text {
-  fill: black;
+  fill: white;
   font-size: 60px;
   text-anchor: middle;
 }
@@ -45,11 +76,11 @@
 }
 
 .button:hover text {
-  fill: white;
+  fill: black;
 }
 
 .button:hover rect {
-  fill: black;
+  fill: white;
 }
 
 .title text {
@@ -57,29 +88,63 @@
   font-size: 200px;
   text-anchor: middle;
   fill: transparent;
-  stroke: darkgoldenrod;
+  stroke: chartreuse;
   stroke-width: 5;
   stroke-dasharray: 100,330;
+  animation: 2s linear 0s infinite text-offset-1;
 }
 
 .title text:nth-child(2) {
-  stroke: cadetblue;
-  stroke-dashoffset: 110;
+  stroke: white;
+  animation-name: text-offset-2;
 }
 
 .title text:nth-child(3) {
-  stroke: green;
-  stroke-dashoffset: 220;
+  stroke: violet;
+  animation-name: text-offset-3;
 }
 
 .title text:nth-child(4) {
-  stroke: brown;
-  stroke-dashoffset: 330;
+  stroke: sienna;
+  animation-name: text-offset-4;
+}
+
+@keyframes text-offset-1 {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 430;
+  }
+}
+@keyframes text-offset-2 {
+  from {
+    stroke-dashoffset: 110;
+  }
+  to {
+    stroke-dashoffset: 540;
+  }
+}
+@keyframes text-offset-3 {
+  from {
+    stroke-dashoffset: 220;
+  }
+  to {
+    stroke-dashoffset: 650;
+  }
+}
+@keyframes text-offset-4 {
+  from {
+    stroke-dashoffset: 330;
+  }
+  to {
+    stroke-dashoffset: 760;
+  }
 }
 
 .round rect {
   fill: white;
-  opacity: 0.8;
+  opacity: 0.5;
 }
 
 .round text {
