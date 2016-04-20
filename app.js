@@ -22,7 +22,7 @@
 
   const COLOR_DEAD = '#999';
 
-  window.io = window.io('ws://139.129.24.151:3000');
+  window.io = window.io('ws://192.168.200.163:3000');
 
   let Paper, Element;
   const paper = s.paper;
@@ -110,6 +110,7 @@
         command.isDead && deaders.push(people);
         people.level = command.level;
         people.action = command.status;
+        if (people.action === 'defend') people.defend();
       });
 
       let peoples = People.peoples.filter(people => people.state !== 'dead');
@@ -273,8 +274,15 @@
     }
 
     defend() {
-      if (this.state === 'dead') return;
-      new Shield(Shield.fragments.shield).defendFor(people);
+      this.gCircle.animate({
+        stroke: 'blue',
+        'stroke-width': 15
+      }, 300, mina.debounce, () => {
+        setTimeout(() => this.gCircle.animate({
+          stroke: 'white',
+          'stroke-width': 3
+        }, 300), 1000);
+      })
     }
 
     power(number) {
@@ -329,6 +337,7 @@
       this.attr({
         class: 'dead'
       });
+      panel.deadUser();
     }
 
     _actionState() {
@@ -594,7 +603,7 @@
       refreshPeople();
     });
 
-    state.setState('welcome');
+    // state.setState('welcome');
     // state.setState('none');
   }
 

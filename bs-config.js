@@ -23,7 +23,7 @@ module.exports = {
     "watchOptions": {},
     "server": true,
     "proxy": false,
-    "port": 3000,
+    "port": 8000,
     "middleware": false,
     "serveStatic": [],
     "ghostMode": {

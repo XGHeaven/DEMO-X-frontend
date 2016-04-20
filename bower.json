@@ -1,0 +1,24 @@
+{
+  "name": "hackathon-demo-x-frontend",
+  "description": "",
+  "main": "app.js",
+  "authors": [
+    "XGHeaven <619943612@qq.com>"
+  ],
+  "license": "ISC",
+  "homepage": "",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bluebird": "^3.3.5",
+    "socket.io-client": "^1.4.5",
+    "lodash": "^4.11.1",
+    "Snap.svg": "snap.svg#^0.4.1",
+    "three.js": "^0.75.0"
+  }
+}
