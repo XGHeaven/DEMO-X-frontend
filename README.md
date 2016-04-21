@@ -4,7 +4,6 @@
 
 ## 全部组件
 
-* [Android](https://github.com/SinoReimu/DEMO-X---Android) By
-[SinoReimu](https://github.com/SinoReimu)
-* [frontend](https://github.com/XGHeaven/DEMO-X-frontend) By
-[XGHeaven](https://github.com/XGHeaven)
+* [Android](https://github.com/SinoReimu/DEMO-X---Android) By [SinoReimu](https://github.com/SinoReimu)
+* [Frontend](https://github.com/XGHeaven/DEMO-X-frontend) By [XGHeaven](https://github.com/XGHeaven)
+* [Backend](https://github.com/Gklub/DemoX_Model) By [imxana](https://github.com/imxana)
